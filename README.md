@@ -17,17 +17,17 @@ The solution uses a two-tier architecture:
 
 1. **Nginx (Front Tier)**
 
-   - Handles incoming HTTP/HTTPS traffic
-   - Provides initial request routing
-   - Manages SSL/TLS termination
-   - Forwards requests to HAProxy
+   - Handles incoming traffic on port 8080
+   - Automatic WebSocket protocol detection and routing
+   - Manages CORS and HTTP headers
+   - Routes traffic to appropriate HAProxy ports (8545/8546)
 
 2. **HAProxy (Back Tier)**
-   - Manages load balancing across RPC nodes
-   - Implements sticky sessions
-   - Performs health checks
-   - Handles WebSocket connections
-   - Provides failover capabilities
+   - Listens on ports 8545 (RPC) and 8546 (WebSocket)
+   - Port-based backend selection
+   - Maintains sticky sessions for 30 minutes
+   - Load balances across 4 backend nodes
+   - Performs TCP-level health checks every 3 seconds
 
 ## Prerequisites
 
@@ -61,20 +61,27 @@ The solution uses a two-tier architecture:
 
 The HAProxy configuration (`haproxy.cfg`) includes:
 
-- TCP mode for WebSocket support
-- Round-robin load balancing
-- Sticky sessions based on client IP
-- Health checks for RPC nodes
-- Configurable timeouts and connection limits
+- Dual-port TCP mode (8545/8546) for RPC and WebSocket support
+- Port-based traffic routing between RPC and WebSocket backends
+- Round-robin load balancing with sticky sessions
+- Sticky sessions based on client IP (30-minute persistence)
+- Health checks every 3 seconds with 2-attempt failure/rise thresholds
+- Configurable timeouts (connect: 5s, client: 50s, server: 50s)
+- Internal health monitoring endpoint on localhost:8547
 
 ### Nginx Configuration
 
 The Nginx configuration (`nginx.conf`) provides:
 
-- Reverse proxy setup
-- Header forwarding
-- Health check endpoint
-- Connection pooling
+- Single entry point on port 8080
+- Automatic WebSocket protocol upgrade handling
+- CORS headers management with preflight request support
+- Smart traffic routing:
+  - WebSocket connections → HAProxy port 8546
+  - RPC traffic → HAProxy port 8545
+- Dual health check endpoints:
+  - `/health/alive` for basic liveness checks
+  - `/health/ready` for HAProxy status verification
 
 ## Health Checks
 
